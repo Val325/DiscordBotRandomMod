@@ -1,9 +1,6 @@
 import discord
 import requests
-from discord.ext import commands
-
-intents = discord.Intents.all()
-intents.message_content = True
+from discord import app_commands 
 
 # file with your token api 
 # first line is api discord
@@ -19,36 +16,26 @@ for line in Lines:
     print("Line{}: {}".format(count, line.strip()))
     api_keys.append(line.strip())
 
-class MyClient(commands.Bot):
+class aclient(discord.Client):
+    def __init__(self):
+        super().__init__(intents = discord.Intents.default())
+        self.synced = False #we use this so the bot doesn't sync commands more than once
+
     async def on_ready(self):
-        print(f'Logged on as {self.user}!')
+        await self.wait_until_ready()
+        if not self.synced: #check if slash commands have been synced 
+            await tree.sync() #guild specific: leave blank if global (global registration can take 1-24 hours)
+            self.synced = True
+        print(f"We have logged in as {self.user}.")
 
-    async def on_message(self, message):
-        if message.author.id == self.user.id:
-            return
+client = aclient()
+tree = app_commands.CommandTree(client)
 
-        print(f'Message from {message.author}: {message.content}')
-        await message.channel.send(f'Hello {message.author}!')
-        await self.process_commands(message)
-
-
-
-@commands.command()
-async def test(ctx):
-    await ctx.send("test")
-    
-@commands.command()
-async def send_msg(ctx, arg):
-    await ctx.send(arg)
-
-@commands.command()
-async def getgames(ctx):
+@tree.command(name = 'get_games', description='get amount games from steam api') #guild specific slash command
+async def slash2(interaction: discord.Interaction):
     all_games = requests.get('https://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json')
-    print("amount games :",len(all_games.json()))
-    print(all_games.json())
+    print("amount games :",len(all_games.json()["applist"]["apps"]))
+    amount_games = "get amount " + str(len(all_games.json()["applist"]["apps"]))
+    await interaction.response.send_message(amount_games, ephemeral = True) 
 
-cli = MyClient(command_prefix='/', intents=intents)
-cli.add_command(test)
-cli.add_command(send_msg)
-cli.add_command(getgames)
-cli.run(api_keys[0])
+client.run(api_keys[0])
